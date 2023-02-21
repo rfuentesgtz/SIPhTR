@@ -18,7 +18,7 @@ imageRGB = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
 imPil = Image.fromarray(imageRGB)
 
-with PyTessBaseAPI(psm=10) as api:
+with PyTessBaseAPI(psm=6) as api:
     #api.setPageSegMode()
     api.SetVariable('tessedit_char_whitelist', validText)
     api.SetImage(imPil)

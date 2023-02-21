@@ -43,6 +43,7 @@ while True:
     if(hueValue < 15 or hueValue > 170):
         GPIO.output(in1,GPIO.HIGH)
         GPIO.output(in2,GPIO.LOW)
+        time.sleep(3)
     else:
         GPIO.output(in1,GPIO.LOW)
         GPIO.output(in2,GPIO.HIGH)
