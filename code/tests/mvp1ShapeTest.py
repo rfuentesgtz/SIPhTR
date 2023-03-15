@@ -3,6 +3,20 @@ from picamera2 import Picamera2, Preview
 from libcamera import controls
 import cv2
 import time
+import RPi.GPIO as GPIO 
+in1 = 24
+in2 = 23
+en = 25
+temp1=1
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(in1,GPIO.OUT)
+GPIO.setup(in2,GPIO.OUT)
+GPIO.setup(en,GPIO.OUT)
+GPIO.output(in1,GPIO.LOW)
+GPIO.output(in2,GPIO.LOW)
+p=GPIO.PWM(en,1000)
+p.start(25)
 
 try:
     picam2 = Picamera2()
@@ -28,7 +42,7 @@ while True:
     copy = gray[cy:3*cy, cx:3*cx]
 
     # setting threshold of gray image
-    _, threshold = cv2.threshold(copy, 125, 255, cv2.THRESH_BINARY)
+    _, threshold = cv2.threshold(copy, 125, 200, cv2.THRESH_BINARY)
 
     #Blurring the image to detect less contours
     blur = cv2.GaussianBlur(threshold, (5,5), cv2.BORDER_DEFAULT)
@@ -55,14 +69,28 @@ while True:
 
         if(len(approx) == 3):
             value = 'Triangle'
+            GPIO.output(in1,GPIO.LOW)
+            GPIO.output(in2,GPIO.HIGH)
         elif(len(approx) == 4):
             value = 'Square'
+            GPIO.output(in1,GPIO.LOW)
+            GPIO.output(in2,GPIO.HIGH)
         elif(len(approx) == 5):
             value = 'Pentagon'
+            GPIO.output(in1,GPIO.LOW)
+            GPIO.output(in2,GPIO.HIGH)
         elif(len(approx) == 10):
             value = 'Star'
+            GPIO.output(in1,GPIO.HIGH)
+            GPIO.output(in2,GPIO.LOW)
+            time.sleep(0.5)
         elif(len(approx) > 10 and len(approx) < 20):
             value = 'Circle'
+            GPIO.output(in1,GPIO.LOW)
+            GPIO.output(in2,GPIO.HIGH)
+            
+            time.sleep(1)
+
     #print(array)
 
     cv2.putText(image_bgr, value, (5,50), 0, 1, (100,100,255), 2)

@@ -4,10 +4,25 @@ import numpy
 from picamera2 import Picamera2, Preview
 import cv2
 import time
+import RPi.GPIO as GPIO 
 
 from PIL import Image
 from PIL import ImageOps
 from libcamera import controls
+
+in1 = 24
+in2 = 23
+en = 25
+temp1=1
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(in1,GPIO.OUT)
+GPIO.setup(in2,GPIO.OUT)
+GPIO.setup(en,GPIO.OUT)
+GPIO.output(in1,GPIO.LOW)
+GPIO.output(in2,GPIO.LOW)
+p=GPIO.PWM(en,1000)
+p.start(25)
 
 
 validText = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -50,6 +65,15 @@ with PyTessBaseAPI(psm=10) as api:
         #cv2.rectangle(image_bgr, (cx,cy), (3*cx, 3*cy), (255,255,255), 5)
         if(text != "" and text != " "):
             print(text[0])
+            if(text[0] == 'R'):
+                GPIO.output(in1,GPIO.HIGH)
+                GPIO.output(in2,GPIO.LOW)
+                time.sleep(1)
+            else:
+                GPIO.output(in1,GPIO.LOW)
+                GPIO.output(in2,GPIO.HIGH)
+
+            
         
         #cv2.putText(image_bgr, text, (5,50), 0, 1, (100,100,255), 2)
         cv2.imshow("frame", image_bgr)
