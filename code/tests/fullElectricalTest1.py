@@ -27,7 +27,7 @@
 #Import libraries
 import RPi.GPIO as GPIO          
 from time import sleep
-from time import time
+import time
 
 #GPIO and Variable Assignmments
 #in and en variables represent pins, while pos and timer are software variables
@@ -37,18 +37,18 @@ act1in2 = 3
 act1pos = 0
 act1timer = 0
 #ACTUATOR 2
-act2in1 = 17
-act2in2 = 27
+act2in1 = 19
+act2in2 = 26
 act2pos = 0
 act2timer = 0
 #ACTUATOR 3
-act3in1 = 10
-act3in2 = 9
+act3in1 = 9
+act3in2 = 11
 act3pos = 0
 act3timer = 0
 #ACTUATOR 4
 act4in1 = 14
-act4in2 = 15
+act4in2 = 18
 act4pos = 0
 act4timer = 0
 #ACTUATOR 5
@@ -57,8 +57,8 @@ act5in2 = 24
 act5pos = 0
 act5timer = 0
 #ACTUATOR 6
-act6in1 = 8
-act6in2 = 7
+act6in1 = 12
+act6in2 = 16
 act6pos = 0
 act6timer = 0
 
@@ -104,11 +104,11 @@ GPIO.setup(act6in2, GPIO.OUT)
 GPIO.output(act6in1, GPIO.LOW)
 GPIO.output(act6in2, GPIO.LOW)
 #MOTOR 1 INITIALIZATION
-GPIO.setup(motor1in, GPIO.OUT)
-GPIO.output(motor1in, GPIO.LOW)
-GPIO.setup(motor1en, GPIO.OUT)
-p=GPIO.PWM(motor1en, 10000)
-p.start(0)
+# GPIO.setup(motor1in, GPIO.OUT)
+# GPIO.output(motor1in, GPIO.LOW)
+# GPIO.setup(motor1en, GPIO.OUT)
+#p=GPIO.PWM(motor1en, 10000)
+#p.start(0)
 
 #ACTUATOR CALIBRATION
 print("GPIO set!")
@@ -135,7 +135,7 @@ GPIO.output(act6in2, GPIO.LOW)
 
 #Leaving the configuration on for 1 second
 tempTime = time.time()
-while((tempTime + 1) < time.time()):
+while((tempTime + 3) > time.time()):
     x = 1 # Placeholder
 
 #Reset all of them to low
@@ -260,6 +260,7 @@ while(1):
     
     elif x=='e':
         GPIO.cleanup()
+        print("Cleand GPIO")
         break
     
     else:
