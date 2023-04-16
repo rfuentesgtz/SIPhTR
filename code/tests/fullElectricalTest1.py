@@ -37,13 +37,13 @@ act1in2 = 3
 act1pos = 0
 act1timer = 0
 #ACTUATOR 2
-act2in1 = 4
-act2in2 = 17
+act2in1 = 17
+act2in2 = 27
 act2pos = 0
 act2timer = 0
 #ACTUATOR 3
-act3in1 = 27
-act3in2 = 22
+act3in1 = 10
+act3in2 = 9
 act3pos = 0
 act3timer = 0
 #ACTUATOR 4
