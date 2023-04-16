@@ -57,8 +57,8 @@ act5in2 = 24
 act5pos = 0
 act5timer = 0
 #ACTUATOR 6
-act6in1 = 25
-act6in2 = 8
+act6in1 = 8
+act6in2 = 7
 act6pos = 0
 act6timer = 0
 
