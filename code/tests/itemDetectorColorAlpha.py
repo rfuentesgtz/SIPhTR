@@ -9,10 +9,10 @@ try:
     config = picam2.create_preview_configuration()
     picam2.align_configuration(config)
     picam2.configure(config)
-    picam2.set_controls({'AfMode': controls.AfModeEnum.Manual, "LensPosition": 10})
+    picam2.set_controls({'AfMode': controls.AfModeEnum.Continuous})
     picam2.start()
     time.sleep(1)
-    objectDetector = cv2.createBackgroundSubtractorMOG2(history=120, varThreshold=60)
+    objectDetector = cv2.createBackgroundSubtractorMOG2(history=300, varThreshold=20)
 except:
     print("Unable to start camera. Exiting...")
     exit()
@@ -42,7 +42,7 @@ while True:
     tmpArea = -1
     for cnt in contours:
         area = cv2.contourArea(cnt)
-        if (area > 3000):
+        if (area > 5000):
             #cv2.drawContours(cropped, [cnt], -1, (0, 255, 0), 2)
             if(area > tmpArea):
                 tmpArea = area
@@ -73,19 +73,19 @@ while True:
             color = 'Blue'
         elif(hueValue < 145):
             color = 'Purple'
-        elif(hueValue < 155):
-            color = 'Pink'
         elif(hueValue < 165):
+            color = 'Pink'
+        elif(hueValue < 175):
             color = 'Magenta'
         elif(hueValue < 181):
             color = 'Red'
         
         saturation = testPixel[1]
-        if(saturation < 80):
+        if(saturation < 50):
             color = 'White'
         
         value = testPixel[2]
-        if(value < 30):
+        if(value < 20):
             color = 'Black'
     
     
