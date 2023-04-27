@@ -1,9 +1,48 @@
+import RPi.GPIO as GPIO          
+from time import sleep
 import numpy
 from picamera2 import Picamera2, Preview
 from libcamera import controls
 import cv2
 import time
 
+choose = 21
+go = 20
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(choose,GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+GPIO.setup(go,GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+
+choice = 0
+start = False
+
+print("Press gray to change modes, or press red to start")
+print("Current selection: Color")
+
+while not start:
+    if(GPIO.input(go) == GPIO.HIGH):
+        start = True
+        time.sleep(1)
+    if(GPIO.input(choose) == GPIO.HIGH):
+        if(choice == 0):
+            choice = 1
+            print("Current Selection: Size and Shape")
+        elif(choice == 1):
+            choice = 2
+            print("Current Selection: Optical Character Recognition")          
+        elif(choice == 2):
+            choice = 0
+            print("Current Selection: Color")
+        else:
+            choice = 0
+        time.sleep(0.5)
+GPIO.cleanup()
+if(choice == 0):
+    print("Color has been chosen. Initializing...")
+if(choice == 1):
+    print("Shape/Size has been chosen. Initializing...")
+if(choice == 2):
+    print("OCR has been chosen. Initializing...")
 try:
     picam2 = Picamera2()
     config = picam2.create_preview_configuration()
@@ -75,13 +114,13 @@ while True:
             color = 'Dark Blue'
         elif(hueValue < 165):
             color = 'Purple'
-        elif(hueValue < 175):
+        elif(hueValue < 178):
             color = 'Pink'
         elif(hueValue < 181):
             color = 'Red'
         
         saturation = testPixel[1]
-        if(saturation < 50):
+        if(saturation < 20):
             color = 'White'
         
         value = testPixel[2]
@@ -106,3 +145,6 @@ while True:
   
 # closing all open windows
 cv2.destroyAllWindows()
+
+    
+        

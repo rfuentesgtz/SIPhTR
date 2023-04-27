@@ -9,7 +9,7 @@ try:
     config = picam2.create_video_configuration({"size": (1600, 900)})
     picam2.align_configuration(config)
     picam2.configure(config)
-    picam2.set_controls({'AfMode': controls.AfModeEnum.Manual, "LensPosition": 10000})
+    picam2.set_controls({'AfMode': controls.AfModeEnum.Continuous})
     picam2.start()
     time.sleep(1)
 except:

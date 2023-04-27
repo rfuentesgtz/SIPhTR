@@ -42,8 +42,8 @@ act2in2 = 26
 act2pos = 0
 act2timer = 0
 #ACTUATOR 3
-act3in1 = 9
-act3in2 = 11
+act3in1 = 19
+act3in2 = 26
 act3pos = 0
 act3timer = 0
 #ACTUATOR 4
@@ -57,8 +57,8 @@ act5in2 = 24
 act5pos = 0
 act5timer = 0
 #ACTUATOR 6
-act6in1 = 12
-act6in2 = 16
+act6in1 = 20
+act6in2 = 21
 act6pos = 0
 act6timer = 0
 
@@ -248,12 +248,18 @@ while(1):
             GPIO.output(act6in1,GPIO.HIGH)
             GPIO.output(act6in2,GPIO.LOW)
             print("Moving Left")
+            time.sleep(0.168)
             act6pos = 0
+            GPIO.output(act6in1,GPIO.LOW)
+            GPIO.output(act6in2,GPIO.LOW)
             x='z'
         else:
             GPIO.output(act6in1,GPIO.LOW)
             GPIO.output(act6in2,GPIO.HIGH)
             print("Moving Right")
+            time.sleep(0.168)
+            GPIO.output(act6in1,GPIO.LOW)
+            GPIO.output(act6in2,GPIO.LOW)
             act6pos = 2
             x='z'
      
