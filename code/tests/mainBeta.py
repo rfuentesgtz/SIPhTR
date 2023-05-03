@@ -1,37 +1,148 @@
-#This is the first edition of a full code controlling each of the electrical componmotor1ents
-#Electrical components include:
-#   6 linear actuators
-#   2 DC Motors
-#Linear Actuator control:
-#   Linear actuators are controlled using two input signals
-#   The linear actuator moves by introducing a voltage difference to its two ends
-#   Therefore, by having two input wires, we can control a linear actuator in both directions
-#   By having input 1 high and input 2 low, we can move the actuator left
-#   By applying the reverse polarity, we can move it right
-#   Total wires used by linear actuators is 2 wires per actuator * 6 actuators = 12 wires
-#DC Motor control
-#   We have two DC motors
-#   With our current system design, they need to move only in one direction.
-#   We control the motor speed by a PWM signal
-#   For our purposes, a software-based PWM is a perfectly fine solution
-#   Once again, this DC motor is controlled by applying a voltage difference to its inputs
-#   We need an additional input to our Motor Controller for the PWM signal
-#   Therefore, we need 3 wires pero DC Motor * 2 DC Motors = 6 wires
-#   If needed, these can be reduced to 2 wires per DC motor,
-#   because we only need one direction, so one of the inputs can be ground as it will never go high
-#ACTUATOR STATUS CONTROL
-#As actuators have no feedback, we need to manually keep track of each actuator's current position
-#This will be done by using an internal variable, 0 for left, 1 for middle, 2 for right
-#Furthermore, for timing, we will be using variables keeping track of when movement started and ended
-
 #Import libraries
 import RPi.GPIO as GPIO          
 from time import sleep
 import time
+import numpy
+import tesserocr
+from tesserocr import PyTessBaseAPI, PSM, OEM
+from picamera2 import Picamera2, Preview
+from libcamera import controls
+import cv2
+import time
+from PIL import Image
+from PIL import ImageOps
+import json
+import os
+from datetime import date
+from datetime import datetime
 
-GPIO.cleanup()
+#----------COLOR SORTING FUNCTION DEFINITION----------
+def sortByColor(image):
+    height1, width1, channels = image.shape
+    returnVal = [1, "Default"]
+    bin = 1
+    if(height1 == 0 or width1 == 0):
+        #return default
+        return returnVal
+    cropHSV = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)    
+    testPixel = cropHSV[int((height1)/2), int((width1)/2)]
+    hueValue = testPixel[0]
+        
+    if(hueValue < 10):
+        color = 'Red'
+        bin = 2
+    elif (hueValue < 25):
+        color = 'Orange'
+        bin = 3
+    elif (hueValue < 30):
+        color = 'Yellow'
+        bin = 4
+    elif(hueValue < 45):
+        color = 'Light Green'
+        bin = 5
+    elif(hueValue < 60):
+        color = 'Light Green'
+        bin = 5
+    elif(hueValue < 90):
+        color = 'Green'
+        bin = 5
+    elif(hueValue < 100):
+        color = 'Cyan'
+        bin = 6
+    elif(hueValue < 135):
+        color = 'Blue'
+        bin = 6
+    elif(hueValue < 150):
+        color = 'Purple'
+        bin = 7
+    elif(hueValue < 165):
+        color = 'Magenta'
+        bin = 7
+    elif(hueValue < 176):
+        color = 'Pink'
+        bin = 8
+    elif(hueValue < 181):
+        color = "Red"
+        bin = 2
+    
+    saturation = testPixel[1]
+    if(saturation < 2):
+        color = 'White'
+        bin = 9
+
+    
+    value = testPixel[2]
+    if(value < 55):
+        color = 'Black'
+        bin = 1
+
+    returnVal[0] = bin
+    returnVal[1] = color
+
+    return(returnVal)
+
+
+#----------Shape/Size SORTING FUNCTION DEFINITION----------
+def sortByShapeSize(image, contour):
+    height1, width1, channels = image.shape
+    shape = "?"
+    if(height1 == 0 or width1 == 0):
+        return shape
+    approx = cv2.approxPolyDP(contour, 0.02 * cv2.arcLength(contour, True), True)
+
+    #cv2.drawContours(cropped, cnt2, -1, (255,255,255), 5)
+    #time.sleep(0.10)
+    print(len(approx))
+    if len(approx) == 3:
+        shape = "triangle"
+    elif len(approx) == 4:
+        shape = "square"
+    elif len(approx) == 10:
+        shape = "star"
+    if len(approx) > 11:
+        shape = "circle"
+    #shape = shape + "," + str(len(approx))
+    #time.sleep(0.10)
+    #shape = shape + ', ' + str(valueInMM)
+    return shape
+
+
+#----------OCR SORTING FUNCTION DEFINITION----------
+def sortByOCR(image, api):
+    height1, width1, channels = image.shape
+    readCharacter = "?"
+    bin = 1
+    returnVal = [1, "?"]
+    if(height1 == 0 or width1 == 0):
+        return returnVal
+    imPil = Image.fromarray(image)
+
+    api.SetImage(imPil)
+    conf = api.MeanTextConf()
+    if (conf > 40):
+        readCharacter = api.GetUTF8Text()[0]
+    returnVal[1] = readCharacter
+    if(readCharacter != "?"):
+        returnVal[0] = ord(readCharacter) % 12 + 1
+    return returnVal
+
+#STORAGE fILE INITIALIZATION
+storageDirectory = "/home/siphtr/Documents/siphtrResults"
+if(not os.path.exists(storageDirectory)):
+    print("Making folders")
+    os.mkdir(storageDirectory)
+day = date.today().strftime("%Y_%m_%d")
+outputFolder = storageDirectory + "/" + day
+if(not os.path.exists(outputFolder)):
+    print("Making directory 2")
+    os.mkdir(outputFolder)
+currentTime = datetime.now().strftime("%H_%M_%S")
+outputFileFullPath = outputFolder + "/" + currentTime + ".json"
+
+
 #GPIO and Variable Assignmments
 #in and en variables represent pins, while pos and timer are software variables
+GPIO.cleanup()
 #ACTUATOR 1
 act1in1 = 27
 act1in2 =17
@@ -75,6 +186,22 @@ act6timer = 0
 act6on = False
 act6delay = 0.15
 
+#Rotating entryway motor on funnel
+
+#Top Motor
+topMotorIn1 = 22
+
+#Bottom motor
+bottomMotorIn1 = 13
+temp1=1
+
+#Rotation Motor
+rotPWM = 16
+rotIn1 = 12
+rotIn2 = 1
+
+
+
 #Debug variable, will be removed in a bit
 temp1=1
 
@@ -114,10 +241,32 @@ GPIO.setup(act6in2, GPIO.OUT)
 GPIO.output(act6in1, GPIO.LOW)
 GPIO.output(act6in2, GPIO.LOW)
 
+#Top Motor
+GPIO.setup(topMotorIn1,GPIO.OUT)
+pTop=GPIO.PWM(topMotorIn1,5)
+#pTop.start(35)
+
+#Bottom Motor
+GPIO.setup(bottomMotorIn1,GPIO.OUT)
+pBottom=GPIO.PWM(bottomMotorIn1,18)
+pBottom.start(20)
+
+#Top spinning thing
+GPIO.setup(rotPWM, GPIO.OUT)
+GPIO.setup(rotIn1, GPIO.OUT)
+GPIO.setup(rotIn2, GPIO.LOW)
+pRotor = GPIO.PWM(rotPWM, 10000)
+GPIO.output(rotIn1, GPIO.HIGH)
+GPIO.output(rotIn2, GPIO.LOW)
+pRotor.start(25)
+rotorDirection = 1
+rotorTimer = time.time() + 1
+
+#Top Rotor initialization
+
 #ACTUATOR CALIBRATION
 print("GPIO set!")
-print("Calibrating actuators by moving them to the left...(TEMPORARY)")
-#TEMPORARY CODE
+print("Calibrating actuators by moving them to the left...")
 #Actuator1
 GPIO.output(act1in1, GPIO.HIGH)
 GPIO.output(act1in2, GPIO.LOW)
@@ -259,6 +408,8 @@ def moveActuators(binNumber):
     left = 0
     middle = 1
     right = 2
+
+    returnSum = 0
 
     global act1in1
     global act1in2
@@ -843,45 +994,433 @@ def moveActuators(binNumber):
     if(act1timer < time.time()):
         turnOffAct1()
         act1on = False
+        returnSum = returnSum + 1
     if(act2timer < time.time()):
         turnOffAct2()
         act2on = False
+        returnSum = returnSum + 1
     if(act3timer < time.time()):
         turnOffAct3()
         act3on = False
+        returnSum = returnSum + 1
     if(act4timer < time.time()):
         turnOffAct4()
         act4on = False
+        returnSum = returnSum + 1
     if(act5timer < time.time()):
         turnOffAct5()
         act5on = False
+        returnSum = returnSum + 1
     if(act6timer < time.time()):
         turnOffAct6()
         act6on = False
+        returnSum = returnSum + 1
+
+    if returnSum < 6:
+        return True
+    else:
+        return False
+
+with open(outputFileFullPath, "w") as outputFile:
+    #Sample input for mode selection
+    mode = int(input("Please enter your sorting mode.\n1: Color\n2: Shape/Size\n3: OCR\nAnswer: ").strip())
 
 
-print("\n")
-print("Actuators set! Type the number bin position to make it change values")
-print("Type e to exit")
-print("\n")
+    #----------COLOR FOR LOOP----------
+    #Configure pre-set values that change between modes
+    if(mode == 1):
+        #Initialize camera
+        try:
+            picam2 = Picamera2()
+            config = picam2.create_video_configuration()
+            picam2.align_configuration(config)
+            picam2.configure(config)
+            picam2.set_controls({'AfMode': controls.AfModeEnum.Manual, "LensPosition":9999})#, 'LensPosition': 10})
+            picam2.start()
+            time.sleep(1)
+        except:
+            print("Unable to start camera. Exiting...")
+            exit()
+
+        #Hash map keeping track of return Values
+        binMap = {1:1}
+        colorMap = {"Default":1}
+        #mapTimer = time.time()
+        detected = False
+        try:
+            while True:
+                #Capture a drame from the camera
+                array = picam2.capture_array("main")
+
+                image_bgr = cv2.cvtColor(array, cv2.COLOR_RGB2BGR)
+
+                height = image_bgr.shape[0]
+                width = image_bgr.shape[1]
+
+                cropped = image_bgr#[int(height/4):int(3*height/4), int(width/4):int(3*width/4)]
+                croppedGray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
+                croppedBlur = cv2.GaussianBlur(croppedGray, (5,5), 0)
+
+                #mask = objectDetector.apply(cropped)
+                _, mask = cv2.threshold(croppedBlur, 65, 255, cv2.THRESH_BINARY)
+
+                contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+                x = 0
+                y = 0
+                w = 0
+                h = 0
+                #roi = cropped
+                color = "Default"
+                binNum = 1
+                tempDetected = False
+
+                tmpArea = -1
+                contourId = 0
+                for cnt in contours:
+                    if contourId == 0:
+                        contourId = 1
+                        continue
+                    area = cv2.contourArea(cnt)
+                    if((area > tmpArea) and (area > 15000)):
+                        tmpArea = area
+                        xt, yt, wt, ht = cv2.boundingRect(cnt)
+                        if(((wt - x > 20) and (ht - y > 20) and wt / ht > 0.6) and (ht / wt) > 0.6):
+                            x = xt
+                            y = yt
+                            w = wt
+                            h = ht
+                        #cv2.drawContours(image_bgr, cnt, -1, (127,127,127), 15)
+                            
+                if(tmpArea > 15000) and x > 5 and y > 5:
+                    #color = sortByColor(image_bgr[y:y+h,x:x+w])
+                    functionReturn = sortByColor(image_bgr[y:y+h,x:x+w])
+                    binNum = functionReturn[0]
+                    color = functionReturn[1]
+                    if not (binNum in binMap):
+                       binMap[binNum] = 0
+                    binMap[binNum] = binMap[binNum] + 1
+                    if not (color in colorMap):
+                       colorMap[color] = 0
+                    colorMap[color] = colorMap[color] + 1
+
+                    detected = True
+                    tempDetected = True
+                    cv2.rectangle(image_bgr, (x, y), (x + w, y + h), (0, 0, 255), 3)
+                    #roi = cropped[int(y):int(y + h), int(x):int(x+w)]
+
+                colorMap["Default"] = 1
+                colorOut = max(colorMap, key=colorMap.get)
+                
+                if(detected == True and tempDetected == False):
+                    detected = False
+                    outBin = max(binMap, key=binMap.get)
+                    print(outBin)
+                    while moveActuators(outBin):
+                        dummy = 1
+                    for key, value in colorMap.items():
+                        colorMap[key] = 0
+                    colorMap["Default"] = 1
+                    for key, value in binMap.items():
+                        binMap[key] = 0
+                    binMap[1] = 1
+                    #mapTimer = time.time() + 1
+
+                cv2.putText(image_bgr, colorOut, (5,50), 0, 1, (255,255,255), 2)
+                cv2.imshow("frame", image_bgr)
+                #cv2.imshow("frame2", mask)
+                #cv2.imshow("frame3", roi)
+
+                if cv2.waitKey(1) == ord('q'):
+                    cv2.imwrite("ItemDetectColor3.jpg", cropped)
+                    break
+                if(rotorTimer < time.time()):
+                    rotorTimer = time.time() + 1
+                    if (rotorDirection == 1):
+                        GPIO.output(rotIn1, GPIO.LOW)
+                        GPIO.output(rotIn2, GPIO.HIGH)
+                        rotorDirection = 2
+                    else:
+                        GPIO.output(rotIn1, GPIO.HIGH)
+                        GPIO.output(rotIn2, GPIO.LOW)
+                        rotorDirection = 1
+            
+        except Exception as e:
+            
+            print(e)
+            print("There has been an error with the program. Exiting...")
+
+        finally:
+            # closing all open windows
+            cv2.destroyAllWindows()
+
+    #----------SHAPE AND SIZE----------
+    elif(mode == 2):
+        #Initialize camera
+        try:
+            picam2 = Picamera2()
+            config = picam2.create_video_configuration({'size':(1600,720)})
+            picam2.align_configuration(config)
+            picam2.configure(config)
+            picam2.set_controls({'AfMode': controls.AfModeEnum.Manual, "LensPosition":12})#, 'LensPosition': 10})
+            picam2.start()
+            time.sleep(1)
+        except:
+            print("Unable to start camera. Exiting...")
+            exit()
+
+        try:
+            while True:
+                #Capture a frame from the camera
+                array = picam2.capture_array("main")
+                #print("Here")
+
+                image_bgr = cv2.cvtColor(array, cv2.COLOR_RGB2BGR)
+
+                height = image_bgr.shape[0]
+                width = image_bgr.shape[1]
+
+                cropped = image_bgr#[int(height/4):int(3*height/4), int(width/4):int(3*width/4)]
+                croppedGray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
+                croppedBlur = cv2.GaussianBlur(croppedGray, (5,5), 0)
+
+                #mask = objectDetector.apply(cropped)
+                _, mask = cv2.threshold(croppedBlur, 20, 255, cv2.THRESH_BINARY)
+
+                contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+                x = 0
+                y = 0
+                w = 0
+                h = 0
+                #roi = cropped
+                detectedShape = "?"
+                detectedSize = 0
+
+                tmpArea = -1
+                shapeCont = 0
+                for cnt in contours:
+                    area = cv2.contourArea(cnt)
+                    if(area > tmpArea and area > 3000):
+                        xt, yt, wt, ht = cv2.boundingRect(cnt)
+                        if((wt != 0 and ht != 0 and wt / ht > 0.4) and (ht / wt) > 0.4):
+                            tmpArea = area
+                            x = xt
+                            y = yt
+                            w = wt
+                            h = ht
+                            shapeCont = cnt
+                        #cv2.drawContours(image_bgr, cnt, -1, (127,127,127), 15)
+                            
+                if(tmpArea > 0):
+                    yStart = y - 20
+                    yEnd = y + h + 20
+                    xStart = x - 20
+                    xEnd = x + w + 20
+                    if(yStart > 0 and yEnd < height and xStart > 0 and xEnd < width):    
+                        detectedShape = sortByShapeSize(image_bgr, shapeCont)
+                        cv2.drawContours(image_bgr, shapeCont, -1, (0,255,0), 2)
+                        cv2.rectangle(image_bgr, (x, y), (x + w, y + h), (0, 0, 255), 3)
+                    #roi = cropped[int(y):int(y + h), int(x):int(x+w)]
+
+                cv2.putText(image_bgr, detectedShape, (5,50), 0, 1, (255,255,255), 2)
+                cv2.imshow("frame", image_bgr)
+                #cv2.imshow("frame2", mask)
+                #cv2.imshow("frame3", roi)
+
+                if cv2.waitKey(1) == ord('q'):
+                    cv2.imwrite("ItemDetectColor3.jpg", cropped)
+                    break
+                
+        except Exception as e:
+            
+            print(e)
+            print("There has been an error with the program. Exiting...")
+
+        finally:
+            # closing all open windows
+            cv2.destroyAllWindows()
+
+    #----------OCR FOR LOOP----------
+    elif(mode == 3):
+        #Initialize camera
+        try:
+            picam2 = Picamera2()
+            config = picam2.create_video_configuration({'size':(900,720)})
+            picam2.align_configuration(config)
+            picam2.configure(config)
+            picam2.set_controls({'AfMode': controls.AfModeEnum.Manual, "LensPosition":9})#, 'LensPosition': 10})
+            picam2.start()
+            time.sleep(1)
+        except:
+            print("Unable to start camera. Exiting...")
+            exit()
+
+        try:
+            validText = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+            binMap = {1:1}
+            characterMap = {"?":1}
+            detected = False
+            with PyTessBaseAPI(psm=10) as api:
+                api.SetVariable('tessedit_char_whitelist', validText)
+                while True:
+                    #Capture a frame from the camera
+                    array = picam2.capture_array("main")
+                    #print("Here")
+
+                    image_bgr = cv2.cvtColor(array, cv2.COLOR_RGB2BGR)
+
+                    height = image_bgr.shape[0]
+                    width = image_bgr.shape[1]
+
+                    cropped = image_bgr#[int(height/4):int(3*height/4), int(width/4):int(3*width/4)]
+                    croppedGray = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
+                    croppedBlur = cv2.GaussianBlur(croppedGray, (5,5), 0)
+
+                    #mask = objectDetector.apply(cropped)
+                    _, mask = cv2.threshold(croppedBlur, 90, 255, cv2.THRESH_BINARY)
+
+                    contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
+                    x = 0
+                    y = 0
+                    w = 0
+                    h = 0
+                    #roi = cropped
+                    character = "?"
+                    binNum = 1
+                    tempDetected = False
+
+                    tmpArea = -1
+                    for cnt in contours:
+                        area = cv2.contourArea(cnt)
+                        if(area > tmpArea and area > 3000):
+                            tmpArea = area
+                            xt, yt, wt, ht = cv2.boundingRect(cnt)
+                            if((wt != 0 and ht != 0 and wt / ht > 0.4) and (ht / wt) > 0.4):
+                                x = xt
+                                y = yt
+                                w = wt
+                                h = ht
+                            #cv2.drawContours(image_bgr, cnt, -1, (127,127,127), 15)
+                                
+                    if(tmpArea > 0 and x > 5 and y > 5):
+                        detected = True
+                        tempDetected = True
+                        yStart = y - 20
+                        yEnd = y + h + 20
+                        xStart = x - 20
+                        xEnd = x + w + 20
+                        if(yStart > 0 and yEnd < height and xStart > 0 and xEnd < width):    
+                            chars = {}
+                            tempBins = {}
+                            image_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+                            croppedRGB = image_rgb[yStart:yEnd,xStart:xEnd]
+                            # rotHeight, rotWidth = croppedRGB.shape[:2]
+                            # center = (rotWidth / 2, rotHeight / 2)
+                            # degree = -180
+                            # while(degree < 180):
+                            #     rotationMatrix = cv2.getRotationMatrix2D(center = center, angle = degree, scale = 1)
+                            #     rotatedImage = cv2.warpAffine(croppedRGB, rotationMatrix, (width, height))
+                            #     character = sortByOCR(rotatedImage, api)[0]
+                            #     if(character in chars):
+                            #         chars[character] = chars[character] + 2
+                            #     else:
+                            #         chars[character] = 2
+                            #     degree = degree + 90
+                            functionResult = sortByOCR(croppedRGB, api)
+                            binNum = functionResult[0]
+                            character = functionResult[1]
+                            if(character in chars):
+                                chars[character] = chars[character] + 2
+                            else:
+                                chars[character] = 2
+                            if(not (binNum in tempBins)):
+                                tempBins[binNum] = 0
+                            tempBins[binNum] = tempBins[binNum] + 2
+
+                            functionResult = sortByOCR(cv2.rotate(croppedRGB, cv2.ROTATE_90_COUNTERCLOCKWISE), api)
+                            binNum = functionResult[0]
+                            character = functionResult[1]
+                            if(character in chars):
+                                chars[character] = chars[character] + 2
+                            else:
+                                chars[character] = 2
+                            if(not (binNum in tempBins)):
+                                tempBins[binNum] = 0
+                            tempBins[binNum] = tempBins[binNum] + 2
+
+                            functionResult = sortByOCR(cv2.rotate(croppedRGB, cv2.ROTATE_180), api)
+                            binNum = functionResult[0]
+                            character = functionResult[1]
+                            if(character in chars):
+                                chars[character] = chars[character] + 2
+                            else:
+                                chars[character] = 2
+                            if(not (binNum in tempBins)):
+                                tempBins[binNum] = 0
+                            tempBins[binNum] = tempBins[binNum] + 2
+
+                            functionResult = sortByOCR(cv2.rotate(croppedRGB, cv2.ROTATE_90_CLOCKWISE), api)
+                            binNum = functionResult[0]
+                            character = functionResult[1]
+                            if(character in chars):
+                                chars[character] = chars[character] + 2
+                            else:
+                                chars[character] = 2
+                            if(not (binNum in tempBins)):
+                                tempBins[binNum] = 0
+                            tempBins[binNum] = tempBins[binNum] + 2
+
+                            cv2.rectangle(image_bgr, (x, y), (x + w, y + h), (0, 0, 255), 3)
+                            chars["?"] = 1
+                            tempBins[1] = 1
+                            character = max(chars, key=chars.get)
+                            if(not (character in characterMap)):
+                                characterMap[character] = 0
+                            characterMap[character] = characterMap[character] + 1
+                            binNum = max(tempBins, key=tempBins.get)
+                            if not (binNum in binMap):
+                                binMap[binNum] = 0
+                            binMap[binNum] = binMap[binNum] + 1
+                            
+                    
+                        #roi = cropped[int(y):int(y + h), int(x):int(x+w)]
+                    characterMap["?"] = 1
+                    characterOut = max(characterMap, key=characterMap.get)
+                    
+                    if(detected == True and tempDetected == False):
+                        detected = False
+                        outBin = max(binMap, key=binMap.get)
+                        print(outBin)
+                        while moveActuators(outBin):
+                            dummy = 1
+                        for key, value in characterMap.items():
+                            characterMap[key] = 0
+                        characterMap["?"] = 1
+                        for key, value in binMap.items():
+                            binMap[key] = 0
+                        binMap[1] = 1
+                        #mapTimer = time.time() + 1
 
 
+                    cv2.putText(image_bgr, characterOut, (5,50), 0, 1, (255,255,255), 2)
+                    cv2.imshow("frame", image_bgr)
+                    #cv2.imshow("frame2", mask)
+                    #cv2.imshow("frame3", roi)
 
-temp = 1
-tempTime = time.time() + 2
+                    if cv2.waitKey(1) == ord('q'):
+                        cv2.imwrite("ItemDetectColor3.jpg", cropped)
+                        break
+                
+        except Exception as e:
+            
+            print(e)
+            print("There has been an error with the program. Exiting...")
 
-while(temp < 13):
-    while(time.time() < tempTime):
-        moveActuators(temp)
-    tempTime = time.time() + 1
-    temp = temp + 1
+        finally:
+            # closing all open windows
+            cv2.destroyAllWindows()
 
-    # if x=='e':
-    #     GPIO.cleanup()
-    #     print("Cleand GPIO")
-    #     break
-    
-    # else:
-    #     print("<<<  wrong data  >>>")
-    #     print("please enter the defined data to continue.....")
-GPIO.cleanup()
+    cv2.destroyAllWindows()
+
