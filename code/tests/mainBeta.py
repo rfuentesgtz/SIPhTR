@@ -1035,7 +1035,7 @@ with open(outputFileFullPath, "w") as outputFile:
             config = picam2.create_video_configuration()
             picam2.align_configuration(config)
             picam2.configure(config)
-            picam2.set_controls({'AfMode': controls.AfModeEnum.Manual, "LensPosition":9999})#, 'LensPosition': 10})
+            picam2.set_controls({'AfMode': controls.AfModeEnum.Manual, "LensPosition": 10})#, 'LensPosition': 10})
             picam2.start()
             time.sleep(1)
         except:
